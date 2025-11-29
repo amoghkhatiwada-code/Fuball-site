@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FuBall - Global Football Hub</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            background: #f4f4f4;
+            color: #333;
+        }
+        header {
+            background: #001f3f;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        nav a {
+            color: white;
+            margin: 0 10px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .search, .filters {
+            text-align: center;
+            margin: 15px;
+        }
+        .search input {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .filters button {
+            padding: 8px 15px;
+            margin: 5px;
+            background: #0074D9;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .filters button:hover {
+            background: #005fa3;
+        }
+        section {
+            margin: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            cursor: pointer;
+            background: #0074D9;
+            color: white;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #001f3f;
+            color: white;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚽ FuBall</h1>
+        <nav>
+            <a href="#matches">Fixtures</a>
+            <a href="#standings">Standings</a>
+            <a href="#highlights">Highlights</a>
+            <a href="#players">Player Rankings</a>
+        </nav>
+    </header>
+    <main>
+        <section class="search">
+            <input type="text" id="searchInput" placeholder="Search teams or competitions">
+        </section>
+        <section class="filters">
+            <button id="filterToday">Today</button>
+            <button id="filterWeek">This Week</button>
+            <button id="filterAll">All</button>
+        </section>
+        <section id="matches">
+            <h3>All Matches (Live + Upcoming)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Competition</th>
+                        <th>Home Team</th>
+                        <th>Away Team</th>
+                        <th id="dateHeader">Date & Time ⬍</th>
+                        <th>Status / Score</th>
+                        <th>Prediction</th>
+                    </tr>
+                </thead>
+                <tbody id="matchesBody">
+                    <tr><td colspan="6" class="loading">Loading matches...</td></tr>
+                </tbody>
+            </table>
+        </section>
+        <section id="standings">
+            <h3>Premier League Standings</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th><th>Form</th>
+                    </tr>
+                </thead>
+                <tbody id="standingsTable">
+                    <tr><td colspan="9" class="loading">Loading standings...</td></tr>
+                </tbody>
+            </table>
+        </section>
+        <section id="highlights">
+            <h3>Match Highlights</h3>
+            <div id="highlightsContainer" class="loading">Loading highlights...</div>
+        </section>
+        <section id="players">
+            <h3>Top Players</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>Player</th><th>Team</th><th>Goals</th><th>Assists</th>
+                    </tr>
+                </thead>
+                <tbody id="playersTable">
+                    <tr><td colspan="5" class="loading">Loading player stats...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+    <footer>
+        <p>© 2025 FuBall. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const API_KEY = '694af12fc5314810a77351b54b9089c1'; 
+        const MATCHES_URL = 'https://api.football-data.org/v4/matches';
+        const STANDINGS_URL = 'https://api.football-data.org/v4/competitions/PL/standings';
+        const PLAYERS_URL = 'https://api.football-data.org/v4/competitions/PL/scorers';
+
+        function calculatePrediction(home, away) {
+            return Math.random() > 0.5 ? `${home} Win` : `${away} Win`;
+        }
+
+        async function loadMatches() {
+            const tbody = document.getElementById('matchesBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading matches...</td></tr>';
+            try {
+                const res = await fetch(MATCHES_URL, { headers: { 'X-Auth-Token': API_KEY } });
+                const data = await res.json();
+                renderMatches(data.matches);
+            } catch (err) {
+                console.error("Error loading matches:", err);
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load matches. Check API Key or Rate Limit.</td></tr>';
+            }
+        }
+
+        function renderMatches(matches) {
+            const tbody = document.getElementById('matchesBody');
+            tbody.innerHTML = '';
+            matches.forEach(m => {
+                const dateObj = new Date(m.utcDate);
+                const dateStr = dateObj.toLocaleDateString();
+                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const score = m.score.fullTime.home !== null ? `${m.score.fullTime.home} - ${m.score.fullTime.away}` : '-';
+                const prediction = calculatePrediction(m.homeTeam.name, m.awayTeam.name);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${m.competition.name}</td>
+                    <td>${m.homeTeam.name}</td>
+                    <td>${m.awayTeam.name}</td>
+                    <td>${dateStr} ${timeStr}</td>
+                    <td>${m.status} ${m.status === 'LIVE' ? `(${score})` : ''}</td>
+                    <td>${prediction}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadStandings() {
+            const tbody = document.getElementById('standingsTable');
+            tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading standings...</td></tr>';
+            try {
+                const res = await fetch(STANDINGS_URL, { headers: { 'X-Auth-Token': API_KEY } });
+                const data = await res.json();
+                renderStandings(data.standings[0].table);
+            } catch (err) {
+                console.error("Error loading standings:", err);
+                tbody.innerHTML = '<tr><td colspan="9" class="loading">Failed to load standings. Check API Key or Rate Limit.</td></tr>';
+            }
+        }
+
+        function renderStandings(table) {
+            const tbody = document.getElementById('standingsTable');
+            tbody.innerHTML = '';
+            table.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.position}</td>
+                    <td>${row.team.name}</td>
+                    <td>${row.playedGames}</td>
+                    <td>${row.won}</td>
+                    <td>${row.draw}</td>
+                    <td>${row.lost}</td>
+                    <td>${row.goalDifference}</td>
+                    <td>${row.points}</td>
+                    <td>${row.form || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadPlayers() {
+            const tbody = document.getElementById('playersTable');
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading player stats...</td></tr>';
+            try {
+                const res = await fetch(PLAYERS_URL, { headers: { 'X-Auth-Token': API_KEY } });
+                const data = await res.json();
+                renderPlayers(data.scorers);
+            } catch (err) {
+                console.error("Error loading players:", err);
+                tbody.innerHTML = '<tr><td colspan="5" class="loading">Failed to load players. Check API Key or Rate Limit.</td></tr>';
+            }
+        }
+
+        function renderPlayers(players) {
+            const tbody = document.getElementById('playersTable');
+            tbody.innerHTML = '';
+            players.forEach((p, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${p.player.name}</td>
+                    <td>${p.team.name}</td>
+                    <td>${p.numberOfGoals}</td>
+                    <td>${p.numberOfAssists || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        const updateIntervalSeconds = 60;
+
+        function initialize() {
+            loadMatches();
+            loadStandings();
+            loadPlayers();
+            
+            setInterval(loadMatches, updateIntervalSeconds * 1000); 
+
+            document.getElementById('filterToday').addEventListener('click', () => {
+                alert('Filtering for Today is not yet implemented!');
+            });
+            document.getElementById('filterWeek').addEventListener('click', () => {
+                alert('Filtering for This Week is not yet implemented!');
+            });
+            document.getElementById('filterAll').addEventListener('click', loadMatches);
+            document.getElementById('searchInput').addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    alert('Search feature is not yet fully implemented!');
+                }
+            });
+        }
+
+        window.onload = initialize;
+
+    </script>
+</body>
+</html>
